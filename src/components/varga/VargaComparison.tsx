@@ -134,7 +134,7 @@ export default function VargaComparison({ data }: VargaComparisonProps) {
       {/* Two degree selectors side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Position A */}
-        <div className="rounded-xl glass-card gradient-border-hover border border-[#f0c060]/30 p-4">
+        <div className="rounded-xl glass-card border border-[#f0c060]/30 p-4">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xs font-bold text-[#f0c060] bg-[#f0c060]/15 px-2 py-0.5 rounded">A</span>
             <span className="text-sm font-semibold" style={{ color: SIGN_COLORS[signIdxA] }}>
@@ -180,7 +180,7 @@ export default function VargaComparison({ data }: VargaComparisonProps) {
         </div>
 
         {/* Position B */}
-        <div className="rounded-xl glass-card gradient-border-hover border border-[#9b7fe8]/30 p-4">
+        <div className="rounded-xl glass-card border border-[#9b7fe8]/30 p-4">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xs font-bold text-[#9b7fe8] bg-[#9b7fe8]/15 px-2 py-0.5 rounded">B</span>
             <span className="text-sm font-semibold" style={{ color: SIGN_COLORS[signIdxB] }}>

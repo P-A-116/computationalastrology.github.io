@@ -217,7 +217,7 @@ export default function PlanetaryRulers({ data }: PlanetaryRulersProps) {
   return (
     <div className="space-y-5">
       {/* Degree Slider Section */}
-      <div className="rounded-xl glass-card gradient-border-hover border border-[var(--v-border)] p-5 card-glow">
+      <div className="rounded-xl glass-card border border-[var(--v-border)] p-5 card-glow">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-xl" style={{ color: SIGN_COLORS[signIdx] }}>
@@ -289,7 +289,7 @@ export default function PlanetaryRulers({ data }: PlanetaryRulersProps) {
 
       {/* Dominant Ruler Card */}
       {dominantRuler.planet && (
-        <div className="rounded-xl glass-card gradient-border-hover border border-[var(--v-border)] p-5 card-glow">
+        <div className="rounded-xl glass-card border border-[var(--v-border)] p-5 card-glow">
           <div className="flex items-center gap-4">
             <div
               className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold shadow-lg"
@@ -337,7 +337,7 @@ export default function PlanetaryRulers({ data }: PlanetaryRulersProps) {
       )}
 
       {/* Ruler Distribution Bar */}
-      <div className="rounded-xl glass-card gradient-border-hover border border-[var(--v-border)] p-5 card-glow">
+      <div className="rounded-xl glass-card border border-[var(--v-border)] p-5 card-glow">
         <h3 style={{ color: "var(--v-text)" }} className="text-sm font-semibold mb-3">
           Planetary Ruler Distribution at {degree.toFixed(1)}°
         </h3>
@@ -369,7 +369,7 @@ export default function PlanetaryRulers({ data }: PlanetaryRulersProps) {
       </div>
 
       {/* Varga Ruler Detail Table */}
-      <div className="rounded-xl glass-card gradient-border-hover border border-[var(--v-border)] p-5 card-glow">
+      <div className="rounded-xl glass-card border border-[var(--v-border)] p-5 card-glow">
         <h3 style={{ color: "var(--v-text)" }} className="text-sm font-semibold mb-3">
           Varga → Ruler Mapping
         </h3>
@@ -420,7 +420,7 @@ export default function PlanetaryRulers({ data }: PlanetaryRulersProps) {
       </div>
 
       {/* 360° Ruler Distribution */}
-      <div className="rounded-xl glass-card gradient-border-hover border border-[var(--v-border)] p-5 card-glow">
+      <div className="rounded-xl glass-card border border-[var(--v-border)] p-5 card-glow">
         <h3 style={{ color: "var(--v-text)" }} className="text-sm font-semibold mb-3">
           Overall Ruler Distribution (Full 360°)
         </h3>
@@ -459,7 +459,7 @@ export default function PlanetaryRulers({ data }: PlanetaryRulersProps) {
 
       {/* Planetary Friendships */}
       {planetAffinities && (
-        <div className="rounded-xl glass-card gradient-border-hover border border-[var(--v-border)] p-5 card-glow">
+        <div className="rounded-xl glass-card border border-[var(--v-border)] p-5 card-glow">
           <h3 style={{ color: "var(--v-text)" }} className="text-sm font-semibold mb-3">
             Planetary Friendship Matrix
           </h3>

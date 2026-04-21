@@ -66,7 +66,7 @@ function VargaCoverageMatrixTable({ data }: { data: { name: string; parity: { od
   const [tooltipInfo, setTooltipInfo] = useState<{ row: number; col: number; value: number; pct: number } | null>(null);
 
   return (
-    <div className="rounded-xl glass-card glass-card-inner-shadow border border-[var(--v-border)] p-5 card-glow gradient-border-hover mb-4 print-no-break">
+    <div className="rounded-xl glass-card glass-card-inner-shadow border border-[var(--v-border)] p-5 card-glow mb-4 print-no-break">
       <h3 style={{ color: "var(--v-text)" }} className="text-sm font-semibold mb-2">Varga Coverage Matrix</h3>
       <p style={{ color: "var(--v-text-muted)" }} className="text-xs mb-4">
         Shows how many intervals each varga spends in each category across the full 360° zodiac. Percentages show relative distribution.
@@ -785,7 +785,7 @@ Varga Sign Analysis — Exact boundary computation using fractional arithmetic
               </motion.div>
               {/* Varga Strength Score section */}
               <motion.div variants={staggerItemVariants} className="mt-5">
-                <div className="rounded-xl glass-card gradient-border-hover border border-[var(--v-border)] p-5 card-glow">
+                <div className="rounded-xl glass-card border border-[var(--v-border)] p-5 card-glow">
                   <h3 style={{ color: "var(--v-text)" }} className="text-sm font-semibold mb-1 flex items-center gap-2">
                     💪 Varga Strength Score
                   </h3>
@@ -1197,7 +1197,7 @@ Varga Sign Analysis — Exact boundary computation using fractional arithmetic
               </motion.div>
 
               {/* Category Balance Radar Chart */}
-              <motion.div variants={staggerItemVariants} className="rounded-xl glass-card glass-card-inner-shadow border border-[var(--v-border)] p-5 card-glow gradient-border-hover mb-4 print-no-break">
+              <motion.div variants={staggerItemVariants} className="rounded-xl glass-card glass-card-inner-shadow border border-[var(--v-border)] p-5 card-glow mb-4 print-no-break">
                 <div className="flex items-center justify-between mb-2">
                   <div>
                     <h3 style={{ color: "var(--v-text)" }} className="text-sm font-semibold">Category Balance Radar</h3>
@@ -1250,7 +1250,7 @@ Varga Sign Analysis — Exact boundary computation using fractional arithmetic
               <div className="section-divider print-page-break"><div className="section-divider-diamond" /></div>
 
               {/* Visual Bar Charts - Peak vs Trough */}
-              <motion.div variants={staggerItemVariants} className="rounded-xl glass-card glass-card-inner-shadow border border-[var(--v-border)] p-5 card-glow gradient-border-hover mb-4 print-no-break print-page-break-after">
+              <motion.div variants={staggerItemVariants} className="rounded-xl glass-card glass-card-inner-shadow border border-[var(--v-border)] p-5 card-glow mb-4 print-no-break print-page-break-after">
                 <h3 style={{ color: "var(--v-text)" }} className="text-sm font-semibold mb-4">Category Peak vs Trough Visualization</h3>
                 <div className="space-y-3">
                   {[
@@ -1334,7 +1334,7 @@ Varga Sign Analysis — Exact boundary computation using fractional arithmetic
               <div className="section-divider print-page-break"><div className="section-divider-diamond" /></div>
 
               {/* Sign Compatibility Matrix - 12×12 Canvas heatmap */}
-              <motion.div variants={staggerItemVariants} className="rounded-xl glass-card glass-card-inner-shadow border border-[var(--v-border)] p-5 card-glow gradient-border-hover print-no-break">
+              <motion.div variants={staggerItemVariants} className="rounded-xl glass-card glass-card-inner-shadow border border-[var(--v-border)] p-5 card-glow print-no-break">
                 <h3 style={{ color: "var(--v-text)" }} className="text-sm font-semibold mb-2">Sign Co-occurrence Matrix</h3>
                 <p style={{ color: "var(--v-text-muted)" }} className="text-xs mb-4">
                   12×12 heatmap showing how often each pair of zodiac signs co-occurs across all 16 vargas. Diagonal shows total sign presence. Click a cell for details.
@@ -1343,7 +1343,7 @@ Varga Sign Analysis — Exact boundary computation using fractional arithmetic
               </motion.div>
 
               {/* Data Tables */}
-              <motion.div variants={staggerItemVariants} className="rounded-xl glass-card glass-card-inner-shadow border border-[var(--v-border)] p-5 card-glow gradient-border-hover print-page-break">
+              <motion.div variants={staggerItemVariants} className="rounded-xl glass-card glass-card-inner-shadow border border-[var(--v-border)] p-5 card-glow print-page-break">
                 <h3 style={{ color: "var(--v-text)" }} className="text-sm font-semibold mb-4">Category Peak/Trough Overview</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -1506,7 +1506,7 @@ Varga Sign Analysis — Exact boundary computation using fractional arithmetic
       </div>
 
       {/* Tab content with framer-motion transitions */}
-      <div className="relative rounded-xl glass-card gradient-border-hover p-5" style={{ border: "1px solid var(--v-border)" }}>
+      <div className="relative rounded-xl glass-card p-5" style={{ border: "1px solid var(--v-border)" }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}

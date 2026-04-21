@@ -472,7 +472,7 @@ export default function DegreeInspector({ data }: DegreeInspectorProps) {
   return (
     <div className="space-y-5">
       {/* Top section: Zodiac Wheel + Degree Slider */}
-      <div className="rounded-xl glass-card gradient-border-hover border border-[var(--v-border)] p-5 card-glow">
+      <div className="rounded-xl glass-card border border-[var(--v-border)] p-5 card-glow">
         <div className="flex flex-col lg:flex-row gap-5 items-start">
           {/* Zodiac wheel */}
           <div className="flex-shrink-0 mx-auto lg:mx-0">
@@ -948,7 +948,7 @@ export default function DegreeInspector({ data }: DegreeInspectorProps) {
 
       {/* Varga sign placements table */}
       {intervalInfo && (
-        <div className="rounded-xl glass-card gradient-border-hover border border-[var(--v-border)] p-5 card-glow">
+        <div className="rounded-xl glass-card border border-[var(--v-border)] p-5 card-glow">
           <div className="flex items-center justify-between mb-3">
             <h3 style={{ color: "var(--v-text)" }} className="text-sm font-semibold">
               Varga Sign Placements at {degree.toFixed(2)}°

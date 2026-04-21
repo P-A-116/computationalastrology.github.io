@@ -1250,7 +1250,7 @@ html.no-transition *, html.no-transition *::before, html.no-transition *::after 
   /* Hide all interactive elements: sliders, buttons, tabs */
   header, footer, .mobile-tab-bar, .mobile-tab-bar-wrapper,
   .scroll-top-btn, .tab-container, .tab-scroll-wrapper,
-  .tab-indicator, .card-glow, .gradient-border-hover::before,
+  .tab-indicator, .card-glow,
   .btn-pulse, .btn-micro, button[title="Keyboard shortcuts"],
   button[title="Print this report"], button[title="Export analysis data as JSON"],
   button[title="Export analysis data as CSV"],

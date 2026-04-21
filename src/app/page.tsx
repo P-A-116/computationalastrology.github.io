@@ -202,7 +202,7 @@ export default function Home() {
       {/* Main content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
         {/* Intro section */}
-        <div className="mb-8 p-5 rounded-xl glass-card gradient-border-hover card-glow">
+        <div className="mb-8 p-5 rounded-xl glass-card card-glow">
           <div className="flex flex-col md:flex-row md:items-start gap-4">
             <div className="flex-1">
               <h2
