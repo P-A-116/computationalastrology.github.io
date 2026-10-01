@@ -1,16 +1,11 @@
 "use client";
 
-import React from "react";
 import {
   AugmentedInterval,
-  SIGN_NAMES,
   SIGN_SYMBOLS,
-  SIGN_COLORS,
-  VARGA_NAMES,
   N_VARGA,
   getPeakAndTrough,
   spansFor,
-  buildEdges,
 } from "@/lib/varga-engine";
 
 interface PeakTroughTableProps {
@@ -31,7 +26,7 @@ export default function PeakTroughTable({
   const peakCount = augList.filter(iv => iv.count === peak).length;
   const troughCount = augList.filter(iv => iv.count === trough).length;
 
-  const formatDegSpan = (start: number, end: number): string => {
+  const formatDegSpan = (start: number): string => {
     const sSign = Math.floor(start / 30);
     const sDeg = start - sSign * 30;
     return `${SIGN_SYMBOLS[sSign + 1]} ${sDeg.toFixed(2)}°`;
@@ -52,7 +47,7 @@ export default function PeakTroughTable({
           <div className="space-y-0.5 max-h-40 overflow-y-auto custom-scrollbar">
             {peakSpans.slice(0, 10).map(([s, e], i) => (
               <div key={i} className="text-[10px] font-mono flex gap-2" style={{ color: "var(--v-text-muted)" }}>
-                <span style={{ color: "var(--v-accent-gold)", opacity: 0.8 }}>{formatDegSpan(s, e)}</span>
+                <span style={{ color: "var(--v-accent-gold)", opacity: 0.8 }}>{formatDegSpan(s)}</span>
                 <span>({(e - s).toFixed(2)}°)</span>
               </div>
             ))}
@@ -72,7 +67,7 @@ export default function PeakTroughTable({
           <div className="space-y-0.5 max-h-40 overflow-y-auto custom-scrollbar">
             {troughSpans.slice(0, 10).map(([s, e], i) => (
               <div key={i} className="text-[10px] font-mono flex gap-2" style={{ color: "var(--v-text-muted)" }}>
-                <span style={{ color: "#60b8f0", opacity: 0.8 }}>{formatDegSpan(s, e)}</span>
+                <span style={{ color: "#60b8f0", opacity: 0.8 }}>{formatDegSpan(s)}</span>
                 <span>({(e - s).toFixed(2)}°)</span>
               </div>
             ))}

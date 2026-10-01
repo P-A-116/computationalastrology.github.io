@@ -8,9 +8,6 @@ const nextConfig: NextConfig = {
   // If deploying to https://username.github.io/ (user/org site), leave empty ""
   basePath: process.env.BASE_PATH || (repoName ? `/${repoName}` : ""),
   trailingSlash: true,
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   reactStrictMode: false,
   images: {
     unoptimized: true,

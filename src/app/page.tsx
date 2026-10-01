@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "next-themes";
 import { Sun, Moon } from "lucide-react";
+import { SIGN_COLORS, SIGN_NAMES, SIGN_SYMBOLS } from "@/lib/varga-engine";
 
 const VargaVisualizer = dynamic(
   () => import("@/components/varga/VargaVisualizer"),
@@ -269,16 +270,16 @@ export default function Home() {
               className="footer-zodiac-wheel flex items-center gap-2 transition-transform duration-1000 ease-in-out hover:rotate-[180deg]"
               style={{ cursor: "default" }}
             >
-              {["♈","♉","♊","♋","♌","♍","♎","♏","♐","♑","♒","♓"].map((sym, i) => (
+              {SIGN_NAMES.slice(1).map((signName, i) => (
                 <span
-                  key={i}
+                  key={signName}
                   className="text-[11px] opacity-40 footer-zodiac-symbol"
                   style={{
-                    color: ["#e05050","#b08040","#60c8c0","#4870e0","#e0a020","#80c040","#c060c0","#3840b0","#e07040","#607880","#40b8c8","#6060c0"][i],
+                    color: SIGN_COLORS[i],
                     animationDelay: `${i * 0.2}s`,
                   }}
                 >
-                  {sym}
+                  {SIGN_SYMBOLS[i + 1]}
                 </span>
               ))}
             </div>

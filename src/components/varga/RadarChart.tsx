@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useRef, useEffect, useCallback, useState } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import {
-  computeVargaAnalysis,
+  type ComputationResult,
+  findInterval,
   N_VARGA,
   COL_ODD, COL_EVEN,
   COL_CARDINAL, COL_FIXED, COL_MUTABLE,
   COL_FIRE, COL_EARTH, COL_AIR, COL_WATER,
-  AugmentedInterval,
 } from "@/lib/varga-engine";
+import { resolveCSSVar } from "@/lib/theme-colors";
+import { prepareHiDPICanvas } from "@/hooks/use-canvas-chart";
 
 // 9 radar axes: Odd, Even, Card, Fix, Mut, Fire, Earth, Air, Water
 const RADAR_AXES = [
@@ -26,21 +28,19 @@ const RADAR_AXES = [
 type RadarKey = typeof RADAR_AXES[number]["key"];
 
 interface RadarChartProps {
-  data: ReturnType<typeof computeVargaAnalysis>;
+  data: ComputationResult;
   degree?: number; // If provided, show analysis at this specific degree
   size?: number;
 }
 
 /** Get category count at a specific degree position */
 function getCategoryCountsAtDegree(
-  data: ReturnType<typeof computeVargaAnalysis>,
+  data: ComputationResult,
   degree: number
 ): Record<RadarKey, number> {
   // Find the interval that contains this degree
   const deg = ((degree % 360) + 360) % 360;
-  const interval = data.intervals.find(
-    iv => iv.b0.toNumber() <= deg && iv.b1.toNumber() > deg
-  );
+  const interval = findInterval(data, deg);
   if (!interval) {
     // Fallback: return zeros
     return { odd: 0, even: 0, card: 0, fix: 0, mut: 0, fire: 0, earth: 0, air: 0, water: 0 };
@@ -62,7 +62,7 @@ function getCategoryCountsAtDegree(
 
 /** Get average category counts across all intervals */
 function getAverageCategoryCounts(
-  data: ReturnType<typeof computeVargaAnalysis>
+  data: ComputationResult
 ): Record<RadarKey, number> {
   const n = data.intervals.length;
   if (n === 0) return { odd: 0, even: 0, card: 0, fix: 0, mut: 0, fire: 0, earth: 0, air: 0, water: 0 };
@@ -95,18 +95,6 @@ function getAverageCategoryCounts(
   };
 }
 
-/** Helper to resolve CSS variable to actual color for Canvas */
-function resolveCSSVar(cssVar: string): string {
-  if (cssVar.startsWith("var(")) {
-    if (typeof window !== "undefined") {
-      const varName = cssVar.slice(4, -1);
-      return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || "#888888";
-    }
-    return "#888888";
-  }
-  return cssVar;
-}
-
 export default function RadarChart({ data, degree, size = 400 }: RadarChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [responsiveSize, setResponsiveSize] = useState(size);
@@ -125,17 +113,11 @@ export default function RadarChart({ data, degree, size = 400 }: RadarChartProps
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
 
     // Handle devicePixelRatio for crisp rendering
-    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     const displaySize = responsiveSize;
-    canvas.width = displaySize * dpr;
-    canvas.height = displaySize * dpr;
-    canvas.style.width = `${displaySize}px`;
-    canvas.style.height = `${displaySize}px`;
-    ctx.scale(dpr, dpr);
+    const ctx = prepareHiDPICanvas(canvas, displaySize, displaySize, { setStyleSize: true });
+    if (!ctx) return;
 
     // Resolve theme colors
     const bgColor = resolveCSSVar("var(--v-card)");

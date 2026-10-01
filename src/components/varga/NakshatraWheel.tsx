@@ -1,17 +1,17 @@
 "use client";
 
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-  SIGN_NAMES,
-  SIGN_SYMBOLS,
-  SIGN_COLORS,
   NAKSHATRA_NAMES,
-  NAKSHATRA_LORDS,
   NAKSHATRA_DEGREES,
   getNakshatraIndex,
   getNakshatraInfo,
+  SIGN_COLORS,
+  SIGN_NAMES,
+  SIGN_SYMBOLS,
 } from "@/lib/varga-engine";
+import SignWheel, { annularSegmentPath, polarPoint, signIndexFor } from "@/components/varga/SignWheel";
 
 interface NakshatraWheelProps {
   degree: number;
@@ -52,22 +52,26 @@ export default function NakshatraWheel({ degree, size = 240 }: NakshatraWheelPro
   // Inner ring: Zodiac sign ring
   const signOuterR = nakshatraInnerR - 4; // small gap between rings
   const signInnerR = signOuterR - 20;
-  const signTextR = (signOuterR + signInnerR) / 2;
 
-  // Pointer / center
-  const pointerR = signInnerR - 10;
-  const centerR = signInnerR - 14;
-
-  const signAngle = useMemo(() => {
-    return ((degree % 360) / 360) * 360 - 90;
-  }, [degree]);
-
-  const pointerX = cx + pointerR * Math.cos((signAngle * Math.PI) / 180);
-  const pointerY = cy + pointerR * Math.sin((signAngle * Math.PI) / 180);
-
-  const signIdx = Math.floor(degree / 30);
+  const signIdx = signIndexFor(degree);
   const nakshatraIdx = getNakshatraIndex(degree);
   const nakshatraInfo = useMemo(() => getNakshatraInfo(degree), [degree]);
+
+  const nakshatraSegments = useMemo(
+    () =>
+      Array.from({ length: 27 }, (_, i) => {
+        const startDeg = i * NAKSHATRA_DEGREES;
+        const startAngle = (startDeg - 90) * (Math.PI / 180);
+        const endAngle = (startDeg + NAKSHATRA_DEGREES - 90) * (Math.PI / 180);
+        const midAngle = ((startDeg + NAKSHATRA_DEGREES / 2 - 90) * Math.PI) / 180;
+        return {
+          i,
+          d: annularSegmentPath(cx, cy, nakshatraInnerR, outerR, startAngle, endAngle),
+          text: polarPoint(cx, cy, nakshatraTextR, midAngle),
+        };
+      }),
+    [cx, cy, nakshatraInnerR, outerR, nakshatraTextR],
+  );
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="mx-auto">
@@ -107,44 +111,23 @@ export default function NakshatraWheel({ degree, size = 240 }: NakshatraWheelPro
       />
 
       {/* Nakshatra outer ring - 27 segments */}
-      {Array.from({ length: 27 }, (_, i) => {
-        const startDeg = i * NAKSHATRA_DEGREES;
-        const endDeg = (i + 1) * NAKSHATRA_DEGREES;
-        const startAngle = (startDeg - 90) * (Math.PI / 180);
-        const endAngle = (endDeg - 90) * (Math.PI / 180);
-        const midAngle = ((startDeg + NAKSHATRA_DEGREES / 2 - 90) * Math.PI) / 180;
-
-        const x1Outer = cx + outerR * Math.cos(startAngle);
-        const y1Outer = cy + outerR * Math.sin(startAngle);
-        const x2Outer = cx + outerR * Math.cos(endAngle);
-        const y2Outer = cy + outerR * Math.sin(endAngle);
-        const x1Inner = cx + nakshatraInnerR * Math.cos(startAngle);
-        const y1Inner = cy + nakshatraInnerR * Math.sin(startAngle);
-        const x2Inner = cx + nakshatraInnerR * Math.cos(endAngle);
-        const y2Inner = cy + nakshatraInnerR * Math.sin(endAngle);
-
-        const textX = cx + nakshatraTextR * Math.cos(midAngle);
-        const textY = cy + nakshatraTextR * Math.sin(midAngle);
-
-        const largeArc = NAKSHATRA_DEGREES > 180 ? 1 : 0;
+      {nakshatraSegments.map(({ i, d, text }) => {
         const isActive = i === nakshatraIdx;
         const color = nakshatraColor(i);
-
         return (
           <g key={`nak-${i}`}>
-            {/* Nakshatra segment */}
             <path
-              d={`M ${x1Inner} ${y1Inner} L ${x1Outer} ${y1Outer} A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2Outer} ${y2Outer} L ${x2Inner} ${y2Inner} A ${nakshatraInnerR} ${nakshatraInnerR} 0 ${largeArc} 0 ${x1Inner} ${y1Inner}`}
+              d={d}
               fill={color}
               fillOpacity={isActive ? 0.55 : 0.12}
               stroke={isActive ? color : "var(--v-border)"}
               strokeWidth={isActive ? 1.5 : 0.3}
             />
-            {/* Nakshatra label - only show abbreviated on larger sizes, skip every other on small */}
+            {/* Label - only on larger sizes, skip every other on small */}
             {(size >= 220 || i % 2 === 0) && (
               <text
-                x={textX}
-                y={textY}
+                x={text.x}
+                y={text.y}
                 textAnchor="middle"
                 dominantBaseline="central"
                 fontSize={size < 260 ? 5 : 6}
@@ -159,137 +142,75 @@ export default function NakshatraWheel({ degree, size = 240 }: NakshatraWheelPro
         );
       })}
 
-      {/* Zodiac sign inner ring - 12 segments */}
-      {Array.from({ length: 12 }, (_, i) => {
-        const startAngle = (i * 30 - 90) * (Math.PI / 180);
-        const endAngle = ((i + 1) * 30 - 90) * (Math.PI / 180);
-        const midAngle = ((i * 30 + 15 - 90) * Math.PI) / 180;
-
-        const x1Outer = cx + signOuterR * Math.cos(startAngle);
-        const y1Outer = cy + signOuterR * Math.sin(startAngle);
-        const x2Outer = cx + signOuterR * Math.cos(endAngle);
-        const y2Outer = cy + signOuterR * Math.sin(endAngle);
-        const x1Inner = cx + signInnerR * Math.cos(startAngle);
-        const y1Inner = cy + signInnerR * Math.sin(startAngle);
-
-        const textX = cx + signTextR * Math.cos(midAngle);
-        const textY = cy + signTextR * Math.sin(midAngle);
-
-        const largeArc = 30 > 180 ? 1 : 0;
-
-        return (
-          <g key={`sign-${i}`}>
-            {/* Sign segment fill */}
-            <path
-              d={`M ${x1Inner} ${y1Inner} L ${x1Outer} ${y1Outer} A ${signOuterR} ${signOuterR} 0 ${largeArc} 1 ${x2Outer} ${y2Outer} L ${cx + signInnerR * Math.cos(endAngle)} ${cy + signInnerR * Math.sin(endAngle)} A ${signInnerR} ${signInnerR} 0 ${largeArc} 0 ${x1Inner} ${y1Inner}`}
-              fill={SIGN_COLORS[i]}
-              fillOpacity={i === signIdx ? 0.5 : 0.15}
-              stroke={i === signIdx ? SIGN_COLORS[i] : "var(--v-border)"}
-              strokeWidth={i === signIdx ? 1.5 : 0.5}
-            />
-            {/* Sign symbol */}
-            <text
-              x={textX}
-              y={textY}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize={size < 260 ? 9 : 11}
-              fill={i === signIdx ? "#ffffff" : SIGN_COLORS[i]}
-              fontWeight={i === signIdx ? "bold" : "normal"}
-              style={{ userSelect: "none" }}
-            >
-              {SIGN_SYMBOLS[i + 1]}
-            </text>
-          </g>
-        );
-      })}
-
-      {/* Center circle */}
-      <circle
+      {/* Zodiac sign ring + centre disc + pointer (shared wheel) */}
+      <SignWheel
+        degree={degree}
         cx={cx}
         cy={cy}
-        r={centerR}
-        fill="var(--v-card)"
-        stroke="var(--v-border)"
-        strokeWidth={0.5}
-      />
-
-      {/* Center text - Nakshatra name */}
-      <text
-        x={cx}
-        y={cy - 16}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontSize={9}
-        fill={nakshatraColor(nakshatraIdx)}
-        fontWeight="bold"
-        style={{ userSelect: "none" }}
+        outerR={signOuterR}
+        innerR={signInnerR}
+        pointerR={signInnerR - 10}
+        centerRadius={signInnerR - 14}
+        hubRadius={3}
+        pointerStrokeWidth={1.5}
+        symbolFontSize={size < 260 ? 9 : 11}
+        activeStrokeWidth={1.5}
       >
-        {nakshatraInfo.name}
-      </text>
+        {/* Centre readout - Nakshatra name */}
+        <text
+          x={cx}
+          y={cy - 16}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={9}
+          fill={nakshatraColor(nakshatraIdx)}
+          fontWeight="bold"
+          style={{ userSelect: "none" }}
+        >
+          {nakshatraInfo.name}
+        </text>
 
-      {/* Center text - Sign symbol + name */}
-      <text
-        x={cx}
-        y={cy - 4}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontSize={10}
-        fill={SIGN_COLORS[signIdx]}
-        fontWeight="bold"
-        style={{ userSelect: "none" }}
-      >
-        {SIGN_SYMBOLS[signIdx + 1]} {SIGN_NAMES[signIdx + 1]}
-      </text>
+        {/* Centre readout - Sign symbol + name */}
+        <text
+          x={cx}
+          y={cy - 4}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={10}
+          fill={SIGN_COLORS[signIdx]}
+          fontWeight="bold"
+          style={{ userSelect: "none" }}
+        >
+          {SIGN_SYMBOLS[signIdx + 1]} {SIGN_NAMES[signIdx + 1]}
+        </text>
 
-      {/* Center text - Degree */}
-      <text
-        x={cx}
-        y={cy + 8}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontSize={8}
-        fill="var(--v-text)"
-        fontFamily="monospace"
-        style={{ userSelect: "none" }}
-      >
-        {(degree % 30).toFixed(2)}°
-      </text>
+        {/* Centre readout - Degree */}
+        <text
+          x={cx}
+          y={cy + 8}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={8}
+          fill="var(--v-text)"
+          fontFamily="monospace"
+          style={{ userSelect: "none" }}
+        >
+          {(degree % 30).toFixed(2)}°
+        </text>
 
-      {/* Center text - Nakshatra Lord & Pada */}
-      <text
-        x={cx}
-        y={cy + 19}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontSize={7}
-        fill="var(--v-text-muted)"
-        style={{ userSelect: "none" }}
-      >
-        {nakshatraInfo.lord} · P{nakshatraInfo.pada}
-      </text>
-
-      {/* Animated pointer line */}
-      <motion.line
-        x1={cx}
-        y1={cy}
-        x2={pointerX}
-        y2={pointerY}
-        stroke="#f0c060"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        animate={{ x2: pointerX, y2: pointerY }}
-        transition={{ type: "spring", stiffness: 120, damping: 20, mass: 0.5 }}
-      />
-      <motion.circle
-        cx={pointerX}
-        cy={pointerY}
-        r={3}
-        fill="#f0c060"
-        animate={{ cx: pointerX, cy: pointerY }}
-        transition={{ type: "spring", stiffness: 120, damping: 20, mass: 0.5 }}
-      />
-      <circle cx={cx} cy={cy} r={3} fill="#f0c060" stroke="var(--v-bg)" strokeWidth={1} />
+        {/* Centre readout - Nakshatra Lord & Pada */}
+        <text
+          x={cx}
+          y={cy + 19}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={7}
+          fill="var(--v-text-muted)"
+          style={{ userSelect: "none" }}
+        >
+          {nakshatraInfo.lord} · P{nakshatraInfo.pada}
+        </text>
+      </SignWheel>
     </svg>
   );
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { VARGA_NAMES } from "@/lib/varga-engine";
 
 interface VargaFilterProps {

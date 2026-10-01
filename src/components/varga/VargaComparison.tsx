@@ -1,18 +1,21 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
-  computeVargaAnalysis,
+  type ComputationResult,
+  findInterval,
   SIGN_NAMES,
   SIGN_SYMBOLS,
   SIGN_COLORS,
   VARGA_NAMES,
   N_VARGA,
 } from "@/lib/varga-engine";
+import { buildShareUrl, readDegreeParam, writeUrlState } from "@/lib/url-state";
+import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import ZodiacWheel from "@/components/varga/ZodiacWheel";
 
 interface VargaComparisonProps {
-  data: ReturnType<typeof computeVargaAnalysis>;
+  data: ComputationResult;
 }
 
 interface VargaDiff {
@@ -27,74 +30,27 @@ interface VargaDiff {
 }
 
 export default function VargaComparison({ data }: VargaComparisonProps) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard();
 
   // Read initial positions from URL search params
-  const [degA, setDegA] = useState(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const param = params.get("degA");
-      if (param !== null) {
-        const parsed = parseFloat(param);
-        if (!isNaN(parsed) && parsed >= 0 && parsed < 360) return parsed;
-      }
-    }
-    return 0;
-  });
-
-  const [degB, setDegB] = useState(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const param = params.get("degB");
-      if (param !== null) {
-        const parsed = parseFloat(param);
-        if (!isNaN(parsed) && parsed >= 0 && parsed < 360) return parsed;
-      }
-    }
-    return 180;
-  });
+  const [degA, setDegA] = useState(() => readDegreeParam("degA", 0));
+  const [degB, setDegB] = useState(() => readDegreeParam("degB", 180));
 
   // Sync positions to URL search params (clean up other component params)
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.set("degA", degA.toFixed(2));
-        url.searchParams.set("degB", degB.toFixed(2));
-        // Remove inspector param when comparison is active
-        url.searchParams.delete("deg");
-        window.history.replaceState(null, "", url.pathname + url.search + url.hash);
-      } catch {
-        // Silently fail in sandboxed iframes where history.replaceState is blocked
-      }
-    }
+    writeUrlState(
+      { degA: degA.toFixed(2), degB: degB.toFixed(2) },
+      { remove: ["deg"] },
+    );
   }, [degA, degB]);
 
   // Share comparison handler
   const handleShareComparison = useCallback(() => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("degA", degA.toFixed(2));
-    url.searchParams.set("degB", degB.toFixed(2));
-    url.hash = "#comparison";
-    navigator.clipboard.writeText(url.toString()).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [degA, degB]);
+    void copy(buildShareUrl({ degA: degA.toFixed(2), degB: degB.toFixed(2) }, "#comparison"));
+  }, [degA, degB, copy]);
 
-  const infoA = useMemo(() => {
-    for (const iv of data.intervals) {
-      if (degA >= iv.b0.toNumber() && degA < iv.b1.toNumber()) return iv;
-    }
-    return null;
-  }, [degA, data.intervals]);
-
-  const infoB = useMemo(() => {
-    for (const iv of data.intervals) {
-      if (degB >= iv.b0.toNumber() && degB < iv.b1.toNumber()) return iv;
-    }
-    return null;
-  }, [degB, data.intervals]);
+  const infoA = useMemo(() => findInterval(data, degA), [degA, data]);
+  const infoB = useMemo(() => findInterval(data, degB), [degB, data]);
 
   const diffs = useMemo((): VargaDiff[] => {
     if (!infoA || !infoB) return [];

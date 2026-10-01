@@ -6,7 +6,9 @@
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
     "build": "next build",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "bun run scripts/verify-engine.ts"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.14",

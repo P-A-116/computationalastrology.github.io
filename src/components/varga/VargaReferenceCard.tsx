@@ -1,11 +1,9 @@
 "use client";
 
-import React from "react";
 import {
   SIGN_NAMES,
   SIGN_SYMBOLS,
   SIGN_COLORS,
-  VARGA_NAMES,
   SIGN_RULERS,
   PLANET_COLORS,
   VARGA_SANSKRIT,

@@ -1,18 +1,18 @@
 "use client";
 
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-  computeVargaAnalysis,
+  type ComputationResult,
+  findIntervalIndex,
   SIGN_NAMES,
   SIGN_SYMBOLS,
   SIGN_COLORS,
-  VARGA_NAMES,
   N_VARGA,
 } from "@/lib/varga-engine";
 
 interface VargaStrengthScoreProps {
-  data: ReturnType<typeof computeVargaAnalysis>;
+  data: ComputationResult;
   degree: number;
 }
 
@@ -28,16 +28,8 @@ interface VargaStrengthScoreProps {
 export default function VargaStrengthScore({ data, degree }: VargaStrengthScoreProps) {
   const analysis = useMemo(() => {
     // Find current interval
-    let currentInterval = null;
-    let currentIntervalIdx = -1;
-    for (let i = 0; i < data.intervals.length; i++) {
-      const iv = data.intervals[i];
-      if (degree >= iv.b0.toNumber() && degree < iv.b1.toNumber()) {
-        currentInterval = iv;
-        currentIntervalIdx = i;
-        break;
-      }
-    }
+    const currentIntervalIdx = findIntervalIndex(data, degree);
+    const currentInterval = currentIntervalIdx === -1 ? null : data.intervals[currentIntervalIdx];
 
     if (!currentInterval) {
       return {
@@ -47,7 +39,7 @@ export default function VargaStrengthScore({ data, degree }: VargaStrengthScoreP
         elementConcentration: 0,
         shiftIntensity: 0,
         overallScore: 0,
-        dominantSign: null,
+        dominantSign: 0,
         dominantCount: 0,
         nearbyShifts: 0,
       };

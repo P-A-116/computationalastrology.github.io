@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  computeVargaAnalysis,
+  type ComputationResult,
   SIGN_NAMES,
   SIGN_SYMBOLS,
   SIGN_COLORS,
@@ -14,7 +14,7 @@ interface VargaDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   vargaIndex: number;
-  data: ReturnType<typeof computeVargaAnalysis>;
+  data: ComputationResult;
 }
 
 export default function VargaDetailModal({

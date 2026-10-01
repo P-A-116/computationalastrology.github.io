@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
 import {
-  computeVargaAnalysis,
+  type ComputationResult,
+  findInterval,
   SIGN_NAMES,
   SIGN_SYMBOLS,
   SIGN_COLORS,
@@ -15,9 +16,10 @@ import {
   VARGA_PURPOSES,
   getNakshatraInfo,
 } from "@/lib/varga-engine";
+import { readDegreeParam, writeUrlState } from "@/lib/url-state";
 
 interface PlanetaryRulersProps {
-  data: ReturnType<typeof computeVargaAnalysis>;
+  data: ComputationResult;
 }
 
 // Planet symbols for display
@@ -37,17 +39,7 @@ const PLANET_SYMBOLS: Record<string, string> = {
 const PLANETS = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
 
 export default function PlanetaryRulers({ data }: PlanetaryRulersProps) {
-  const [degree, setDegree] = useState(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const degParam = params.get("deg");
-      if (degParam !== null) {
-        const parsed = parseFloat(degParam);
-        if (!isNaN(parsed) && parsed >= 0 && parsed < 360) return parsed;
-      }
-    }
-    return 0;
-  });
+  const [degree, setDegree] = useState(() => readDegreeParam("deg", 0));
 
   const [isPlaying, setIsPlaying] = useState(false);
   const animFrameRef = useRef<number | null>(null);
@@ -55,14 +47,7 @@ export default function PlanetaryRulers({ data }: PlanetaryRulersProps) {
   const animStartDegreeRef = useRef<number>(0);
 
   // Find the interval for the current degree
-  const intervalInfo = useMemo(() => {
-    for (const iv of data.intervals) {
-      if (degree >= iv.b0.toNumber() && degree < iv.b1.toNumber()) {
-        return iv;
-      }
-    }
-    return null;
-  }, [degree, data.intervals]);
+  const intervalInfo = useMemo(() => findInterval(data, degree), [degree, data]);
 
   // Compute planetary ruler for each varga at current degree
   const vargaRulers = useMemo(() => {
@@ -198,16 +183,7 @@ export default function PlanetaryRulers({ data }: PlanetaryRulersProps) {
 
   // Sync degree to URL
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.set("deg", degree.toFixed(2));
-        url.hash = "#rulers";
-        window.history.replaceState(null, "", url.pathname + url.search + url.hash);
-      } catch {
-        // Silently fail in sandboxed iframes where history.replaceState is blocked
-      }
-    }
+    writeUrlState({ deg: degree.toFixed(2) }, { hash: "#rulers" });
   }, [degree]);
 
   const signIdx = Math.floor(degree / 30);
@@ -294,7 +270,7 @@ export default function PlanetaryRulers({ data }: PlanetaryRulersProps) {
             <div
               className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold shadow-lg"
               style={{
-                backgroundColor: `${dominantRuler.rulerColor || PLANET_COLORS[dominantRuler.planet]}20`,
+                backgroundColor: `${PLANET_COLORS[dominantRuler.planet]}20`,
                 border: `2px solid ${PLANET_COLORS[dominantRuler.planet]}50`,
                 color: PLANET_COLORS[dominantRuler.planet],
                 boxShadow: `0 4px 20px ${PLANET_COLORS[dominantRuler.planet]}30`,

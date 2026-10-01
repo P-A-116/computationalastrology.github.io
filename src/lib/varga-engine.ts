@@ -5,8 +5,8 @@
 
 // Fraction class for exact arithmetic
 export class Fraction {
-  numerator: number;
-  denominator: number;
+  readonly numerator: number;
+  readonly denominator: number;
 
   constructor(num: number, den: number = 1) {
     if (den === 0) throw new Error("Denominator cannot be zero");
@@ -17,45 +17,45 @@ export class Fraction {
   }
 
   add(other: Fraction | number): Fraction {
-    if (typeof other === "number") other = new Fraction(other);
+    const o = asFraction(other);
     return new Fraction(
-      this.numerator * other.denominator + other.numerator * this.denominator,
-      this.denominator * other.denominator
+      this.numerator * o.denominator + o.numerator * this.denominator,
+      this.denominator * o.denominator
     );
   }
 
   sub(other: Fraction | number): Fraction {
-    if (typeof other === "number") other = new Fraction(other);
+    const o = asFraction(other);
     return new Fraction(
-      this.numerator * other.denominator - other.numerator * this.denominator,
-      this.denominator * other.denominator
+      this.numerator * o.denominator - o.numerator * this.denominator,
+      this.denominator * o.denominator
     );
   }
 
   mul(other: Fraction | number): Fraction {
-    if (typeof other === "number") other = new Fraction(other);
+    const o = asFraction(other);
     return new Fraction(
-      this.numerator * other.numerator,
-      this.denominator * other.denominator
+      this.numerator * o.numerator,
+      this.denominator * o.denominator
     );
   }
 
   div(other: Fraction | number): Fraction {
-    if (typeof other === "number") other = new Fraction(other);
+    const o = asFraction(other);
     return new Fraction(
-      this.numerator * other.denominator,
-      this.denominator * other.numerator
+      this.numerator * o.denominator,
+      this.denominator * o.numerator
     );
   }
 
   eq(other: Fraction | number): boolean {
-    if (typeof other === "number") other = new Fraction(other);
-    return this.numerator * other.denominator === other.numerator * this.denominator;
+    const o = asFraction(other);
+    return this.numerator * o.denominator === o.numerator * this.denominator;
   }
 
   lt(other: Fraction | number): boolean {
-    if (typeof other === "number") other = new Fraction(other);
-    return this.numerator * other.denominator < other.numerator * this.denominator;
+    const o = asFraction(other);
+    return this.numerator * o.denominator < o.numerator * this.denominator;
   }
 
   lte(other: Fraction | number): boolean {
@@ -63,8 +63,8 @@ export class Fraction {
   }
 
   gt(other: Fraction | number): boolean {
-    if (typeof other === "number") other = new Fraction(other);
-    return this.numerator * other.denominator > other.numerator * this.denominator;
+    const o = asFraction(other);
+    return this.numerator * o.denominator > o.numerator * this.denominator;
   }
 
   toNumber(): number {
@@ -77,6 +77,12 @@ export class Fraction {
   }
 }
 
+/** Coerce a numeric operand so every comparison/arithmetic method stays uniform. */
+function asFraction(value: Fraction | number): Fraction {
+  return typeof value === "number" ? new Fraction(value) : value;
+}
+
+
 function gcd(a: number, b: number): number {
   a = Math.abs(a);
   b = Math.abs(b);
@@ -85,18 +91,6 @@ function gcd(a: number, b: number): number {
   }
   return a;
 }
-
-// ─────────────────────────────────────────────
-// Theme Colors
-// ─────────────────────────────────────────────
-export const THEME = {
-  BG: "#0e0e14",
-  PANEL: "#16161f",
-  FG: "#dcd8f0",
-  MUTED: "#4a4860",
-  GOLD: "#f0c060",
-  ACCENT: "#9b7fe8",
-};
 
 // ─────────────────────────────────────────────
 // Constants
@@ -157,7 +151,8 @@ function segmentAdvance(deg: number, segments: [number, number][]): number {
 // ─────────────────────────────────────────────
 // Varga functions
 // ─────────────────────────────────────────────
-function D1(s: number, d: number): number { return s; }
+// D1 maps a sign to itself; the within-sign degree is irrelevant.
+function D1(s: number, _d: number): number { return s; }
 function D2(s: number, d: number): number {
   if (isOdd(s)) return d < 15 ? 5 : 4;
   return d < 15 ? 4 : 5;
@@ -259,6 +254,41 @@ export const COL_FIRE_EARTH = "#c8a840";
 export const COL_FIRE_AIR = "#a060d8";
 export const COL_OVERLAP = "#e07030";
 export const COL_NEITHER = "#304060";
+
+/**
+ * Canonical descriptor for the eleven category analyses produced by
+ * `computeVargaAnalysis`. Every consumer (exports, tables, summary cards)
+ * derives its label, color and group from this list so they cannot drift apart.
+ */
+export type CategoryKey =
+  | "oddIvs" | "evenIvs"
+  | "cardIvs" | "fixIvs" | "mutIvs"
+  | "fireIvs" | "earthIvs" | "airIvs" | "waterIvs"
+  | "fireEarthIvs" | "fireAirIvs";
+
+export type CategoryGroup = "parity" | "modality" | "element" | "combo";
+
+export interface CategoryDescriptor {
+  key: CategoryKey;
+  /** Display label, e.g. "Fire+Earth". */
+  name: string;
+  color: string;
+  group: CategoryGroup;
+}
+
+export const CATEGORIES: CategoryDescriptor[] = [
+  { key: "oddIvs",       name: "Odd",        color: COL_ODD,        group: "parity"   },
+  { key: "evenIvs",      name: "Even",       color: COL_EVEN,       group: "parity"   },
+  { key: "cardIvs",      name: "Cardinal",   color: COL_CARDINAL,   group: "modality" },
+  { key: "fixIvs",       name: "Fixed",      color: COL_FIXED,      group: "modality" },
+  { key: "mutIvs",       name: "Mutable",    color: COL_MUTABLE,    group: "modality" },
+  { key: "fireIvs",      name: "Fire",       color: COL_FIRE,       group: "element"  },
+  { key: "earthIvs",     name: "Earth",      color: COL_EARTH,      group: "element"  },
+  { key: "airIvs",       name: "Air",        color: COL_AIR,        group: "element"  },
+  { key: "waterIvs",     name: "Water",      color: COL_WATER,      group: "element"  },
+  { key: "fireEarthIvs", name: "Fire+Earth", color: COL_FIRE_EARTH, group: "combo"    },
+  { key: "fireAirIvs",   name: "Fire+Air",   color: COL_FIRE_AIR,   group: "combo"    },
+];
 
 // ─────────────────────────────────────────────
 // Boundary computation
@@ -369,23 +399,6 @@ function analyseCategory(
   });
 }
 
-// Merge consecutive intervals with same names
-function mergeIvNames(ivList: [Fraction, Fraction, string[]][]): [Fraction, Fraction, string[]][] {
-  if (ivList.length === 0) return ivList;
-  const merged: [Fraction, Fraction, string[]][] = [];
-  for (const [b0, b1, names] of ivList) {
-    if (merged.length > 0) {
-      const [prevB0, prevB1, prevNames] = merged[merged.length - 1];
-      if (prevNames.join(",") === names.join(",") && prevB1.eq(b0)) {
-        merged[merged.length - 1] = [prevB0, b1, names];
-        continue;
-      }
-    }
-    merged.push([b0, b1, names]);
-  }
-  return merged;
-}
-
 // ─────────────────────────────────────────────
 // Main computation
 // ─────────────────────────────────────────────
@@ -470,15 +483,6 @@ export function buildEdges(augList: AugmentedInterval[]): number[] {
   return edges;
 }
 
-export function stepLineData(edges: number[], counts: number[]): { x: number; y: number }[] {
-  const points: { x: number; y: number }[] = [];
-  for (let i = 0; i < counts.length; i++) {
-    points.push({ x: edges[i], y: counts[i] });
-    points.push({ x: edges[i + 1], y: counts[i] });
-  }
-  return points;
-}
-
 export function spansFor(augList: AugmentedInterval[], targetVal: number): [number, number][] {
   const raw: [number, number][] = augList
     .filter(iv => iv.count === targetVal)
@@ -530,18 +534,36 @@ export function getSpanInfo(augList: AugmentedInterval[]): SpanInfo {
   };
 }
 
-// Sign boundary positions (for x-axis)
-export const SIGN_BOUNDARIES = Array.from({ length: 13 }, (_, i) => i * 30);
+/**
+ * Locate the interval containing `deg`.
+ *
+ * Returns -1 / null when the degree falls outside the analysed range, so callers
+ * never have to guess whether a lookup succeeded.
+ */
+export function findIntervalIndex(data: ComputationResult, deg: number): number {
+  for (let i = 0; i < data.intervals.length; i++) {
+    const iv = data.intervals[i];
+    if (deg >= iv.b0.toNumber() && deg < iv.b1.toNumber()) return i;
+  }
+  return -1;
+}
 
-// Degree to sign name
+export function findInterval(data: ComputationResult, deg: number): Interval | null {
+  const idx = findIntervalIndex(data, deg);
+  return idx === -1 ? null : data.intervals[idx];
+}
+
+// Degree to sign number (1-indexed), clamped at the 360° wrap point
+export function signNumberFromDegree(deg: number): number {
+  return Math.min(Math.floor(deg / 30) + 1, 12);
+}
+
 export function degreeToSignName(deg: number): string {
-  const signIdx = Math.floor(deg / 30);
-  return SIGN_NAMES[Math.min(signIdx + 1, 12)];
+  return SIGN_NAMES[signNumberFromDegree(deg)];
 }
 
 export function degreeToSignSymbol(deg: number): string {
-  const signIdx = Math.floor(deg / 30);
-  return SIGN_SYMBOLS[Math.min(signIdx + 1, 12)];
+  return SIGN_SYMBOLS[signNumberFromDegree(deg)];
 }
 
 // ─────────────────────────────────────────────

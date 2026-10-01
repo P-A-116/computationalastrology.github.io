@@ -1,2 +1,4 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Normalize all text files to LF in the index AND the working tree.
+# The explicit eol=lf overrides core.autocrlf, so Windows checkouts stay LF too
+# (this is what silences the "LF will be replaced by CRLF" warnings).
+* text=auto eol=lf

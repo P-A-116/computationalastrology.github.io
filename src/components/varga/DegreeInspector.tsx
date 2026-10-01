@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import {
-  computeVargaAnalysis,
+  type ComputationResult,
+  findIntervalIndex,
   SIGN_NAMES,
   SIGN_SYMBOLS,
   SIGN_COLORS,
@@ -15,10 +16,12 @@ import VargaDetailModal from "@/components/varga/VargaDetailModal";
 import BookmarkManager from "@/components/varga/BookmarkManager";
 import DegreePresets from "@/components/varga/DegreePresets";
 import { useToast } from "@/hooks/use-toast";
+import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
+import { buildShareUrl, readDegreeParam, writeUrlState } from "@/lib/url-state";
 import { NAKSHATRA_NAMES, NAKSHATRA_LORDS, NAKSHATRA_DEGREES, getNakshatraInfo } from "@/lib/varga-engine";
 
 interface DegreeInspectorProps {
-  data: ReturnType<typeof computeVargaAnalysis>;
+  data: ComputationResult;
 }
 
 interface Bookmark {
@@ -60,23 +63,11 @@ function generateBookmarkLabel(degree: number): string {
 }
 
 export default function DegreeInspector({ data }: DegreeInspectorProps) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard();
   const { toast } = useToast();
 
   // Read initial degree from URL search params
-  const [degree, setDegree] = useState(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const degParam = params.get("deg");
-      if (degParam !== null) {
-        const parsed = parseFloat(degParam);
-        if (!isNaN(parsed) && parsed >= 0 && parsed < 360) {
-          return parsed;
-        }
-      }
-    }
-    return 0;
-  });
+  const [degree, setDegree] = useState(() => readDegreeParam("deg", 0));
 
   const [modalVargaIdx, setModalVargaIdx] = useState<number | null>(null);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => loadBookmarks());
@@ -92,8 +83,6 @@ export default function DegreeInspector({ data }: DegreeInspectorProps) {
   const isPlayingRef = useRef(false);
   const speedRef = useRef(1);
   const transitModeRef = useRef(false);
-  const [prevSignRow, setPrevSignRow] = useState<number[] | null>(null);
-  const [vargaShiftCount, setVargaShiftCount] = useState(0);
   const setDegreeRef = useRef(setDegree);
   const boundaryDegreesRef = useRef<number[]>([]);
 
@@ -249,18 +238,7 @@ export default function DegreeInspector({ data }: DegreeInspectorProps) {
 
   // Sync degree to URL search params (clean up other component params)
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.set("deg", degree.toFixed(2));
-        // Remove comparison params when inspector is active
-        url.searchParams.delete("degA");
-        url.searchParams.delete("degB");
-        window.history.replaceState(null, "", url.pathname + url.search + url.hash);
-      } catch {
-        // Silently fail in sandboxed iframes where history.replaceState is blocked
-      }
-    }
+    writeUrlState({ deg: degree.toFixed(2) }, { remove: ["degA", "degB"] });
   }, [degree]);
 
   // Save bookmarks to localStorage whenever they change
@@ -270,14 +248,8 @@ export default function DegreeInspector({ data }: DegreeInspectorProps) {
 
   // Share button handler
   const handleShare = useCallback(() => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("deg", degree.toFixed(2));
-    url.hash = "#inspector";
-    navigator.clipboard.writeText(url.toString()).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [degree]);
+    void copy(buildShareUrl({ deg: degree.toFixed(2) }, "#inspector"));
+  }, [degree, copy]);
 
   // Bookmark handler
   const handleBookmark = useCallback(() => {
@@ -343,15 +315,12 @@ export default function DegreeInspector({ data }: DegreeInspectorProps) {
   const signName = SIGN_NAMES[Math.min(signIdx + 1, 12)];
   const signSymbol = SIGN_SYMBOLS[Math.min(signIdx + 1, 12)];
 
-  // Find the interval this degree falls in
-  const intervalInfo = useMemo(() => {
-    for (const iv of data.intervals) {
-      if (degree >= iv.b0.toNumber() && degree < iv.b1.toNumber()) {
-        return iv;
-      }
-    }
-    return null;
-  }, [degree, data.intervals]);
+  // Locate the interval this degree falls in, plus the one before it.
+  // Deriving the previous interval here (instead of remembering it in state via
+  // an effect) keeps the shift/flash calculations effect-free.
+  const intervalIdx = useMemo(() => findIntervalIndex(data, degree), [degree, data]);
+  const intervalInfo = intervalIdx === -1 ? null : data.intervals[intervalIdx];
+  const prevSignRow = intervalIdx > 0 ? data.intervals[intervalIdx - 1].signRow : null;
 
   // Count categories
   const counts = useMemo(() => {
@@ -377,52 +346,26 @@ export default function DegreeInspector({ data }: DegreeInspectorProps) {
     // Is this degree exactly at a boundary point?
     const isAtBoundary = Math.abs(degree - b0) < 0.01;
 
-    // Find the previous interval to compare sign rows
-    const currentIdx = data.intervals.indexOf(intervalInfo);
-    if (currentIdx <= 0) {
-      // At the very first interval or not found
+    if (intervalIdx <= 0) {
+      // At the very first interval there is nothing to compare against
       return { count: 0, isBoundary: isAtBoundary };
     }
 
-    const prevInterval = data.intervals[currentIdx - 1];
+    const prevRow = data.intervals[intervalIdx - 1].signRow;
     let shiftCount = 0;
     for (let i = 0; i < intervalInfo.signRow.length; i++) {
-      if (intervalInfo.signRow[i] !== prevInterval.signRow[i]) shiftCount++;
+      if (intervalInfo.signRow[i] !== prevRow[i]) shiftCount++;
     }
 
     return { count: shiftCount, isBoundary: isAtBoundary };
-  }, [intervalInfo, degree, data.intervals]);
-
-  // Also compute shift count from animation tracking (for during playback)
-  const computedShiftCount = useMemo(() => {
-    if (!intervalInfo || !prevSignRow) return 0;
-    let count = 0;
-    for (let i = 0; i < intervalInfo.signRow.length; i++) {
-      if (intervalInfo.signRow[i] !== prevSignRow[i]) count++;
-    }
-    return count;
-  }, [intervalInfo, prevSignRow]);
-
-  // Track previous signRow for animation shift count
-  const prevIntervalSignRowRef = useRef<number[] | null>(null);
-  useEffect(() => {
-    if (intervalInfo) {
-      prevIntervalSignRowRef.current = [...intervalInfo.signRow];
-      setPrevSignRow(prevIntervalSignRowRef.current);
-    }
-  }, [intervalInfo]);
-
-  const handleDegreeChange = useCallback((newDeg: number) => {
-    if (isPlaying) handlePause();
-    setDegree(newDeg);
-  }, [isPlaying, handlePause]);
+  }, [intervalInfo, intervalIdx, degree, data.intervals]);
 
   // Compute sign persistence for each varga at current degree
   // Scans forward through intervals to find when each varga's sign changes
   const vargaPersistence = useMemo(() => {
     if (!intervalInfo) return [];
     const persistence: { remainingDeg: number; totalSpan: number; signStart: number; signEnd: number }[] = [];
-    const currentIntervalIdx = data.intervals.indexOf(intervalInfo);
+    const currentIntervalIdx = intervalIdx;
 
     for (let j = 0; j < N_VARGA; j++) {
       const currentSign = intervalInfo.signRow[j];
@@ -451,7 +394,7 @@ export default function DegreeInspector({ data }: DegreeInspectorProps) {
       });
     }
     return persistence;
-  }, [intervalInfo, degree, data.intervals]);
+  }, [intervalInfo, intervalIdx, degree, data.intervals]);
 
   // Find which sign appears most across vargas
   const dominantSign = useMemo(() => {
@@ -466,8 +409,6 @@ export default function DegreeInspector({ data }: DegreeInspectorProps) {
     }
     return { sign: maxSign, count: maxCount };
   }, [intervalInfo]);
-
-  const isBookmarked = bookmarks.some(b => Math.abs(b.degree - degree) < 0.01);
 
   return (
     <div className="space-y-5">
@@ -724,28 +665,28 @@ export default function DegreeInspector({ data }: DegreeInspectorProps) {
                 </button>
 
                 {/* Varga shift counter badge */}
-                {isPlaying && computedShiftCount > 0 && (
+                {isPlaying && boundaryShiftCount.count > 0 && (
                   <span
                     className="flex-shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold"
                     style={{
-                      backgroundColor: computedShiftCount >= 4
+                      backgroundColor: boundaryShiftCount.count >= 4
                         ? "rgba(224, 82, 82, 0.2)"
-                        : computedShiftCount >= 2
+                        : boundaryShiftCount.count >= 2
                         ? "rgba(240, 192, 96, 0.2)"
                         : "rgba(92, 224, 122, 0.15)",
-                      color: computedShiftCount >= 4
+                      color: boundaryShiftCount.count >= 4
                         ? "#e05252"
-                        : computedShiftCount >= 2
+                        : boundaryShiftCount.count >= 2
                         ? "var(--v-accent-gold)"
                         : "#5ce07a",
-                      border: `1px solid ${computedShiftCount >= 4
+                      border: `1px solid ${boundaryShiftCount.count >= 4
                         ? "rgba(224, 82, 82, 0.4)"
-                        : computedShiftCount >= 2
+                        : boundaryShiftCount.count >= 2
                         ? "rgba(240, 192, 96, 0.4)"
                         : "rgba(92, 224, 122, 0.3)"}`,
                     }}
                   >
-                    {computedShiftCount} shifted
+                    {boundaryShiftCount.count} shifted
                   </span>
                 )}
 

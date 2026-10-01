@@ -3,16 +3,25 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  computeVargaAnalysis,
+  type ComputationResult,
   SIGN_NAMES,
   SIGN_SYMBOLS,
   SIGN_COLORS,
   VARGA_NAMES,
   N_VARGA,
 } from "@/lib/varga-engine";
+import {
+  resolveCSSVar,
+  withAlpha,
+  rgbString,
+  sampleColorStops,
+  PURPLE_GOLD_RAMP_EVEN,
+} from "@/lib/theme-colors";
+import { downloadCanvasPng } from "@/lib/download";
+import { useCanvasWidth, prepareHiDPICanvas, canvasMousePos } from "@/hooks/use-canvas-chart";
 
 interface VargaSignFrequencyProps {
-  data: ReturnType<typeof computeVargaAnalysis>;
+  data: ComputationResult;
 }
 
 interface CellInfo {
@@ -24,47 +33,10 @@ interface CellInfo {
 
 const MARGIN = { top: 50, right: 20, bottom: 55, left: 55 };
 
-/** Helper to resolve CSS variable to actual color for Canvas */
-function resolveCSSVar(cssVar: string): string {
-  if (cssVar.startsWith("var(")) {
-    if (typeof window !== "undefined") {
-      const varName = cssVar.slice(4, -1);
-      return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || "#888888";
-    }
-    return "#888888";
-  }
-  return cssVar;
-}
-
-/** Resolve a CSS variable to an rgba() string with given alpha */
-function resolveCSSVarAlpha(cssVar: string, alpha: number): string {
-  const hex = resolveCSSVar(cssVar);
-  const h = hex.replace("#", "");
-  const r = parseInt(h.substring(0, 2), 16);
-  const g = parseInt(h.substring(2, 4), 16);
-  const b = parseInt(h.substring(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
-// Helper: rgba string for canvas (canvas doesn't support #hex/alpha)
-function rgba(r: number, g: number, b: number, a: number): string {
-  return `rgba(${r},${g},${b},${a})`;
-}
-
-// Parse hex color to rgb components
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace("#", "");
-  return [
-    parseInt(h.substring(0, 2), 16),
-    parseInt(h.substring(2, 4), 16),
-    parseInt(h.substring(4, 6), 16),
-  ];
-}
-
 export default function VargaSignFrequency({ data }: VargaSignFrequencyProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [canvasWidth, setCanvasWidth] = useState(800);
+  const canvasWidth = useCanvasWidth(containerRef);
   const [selectedCell, setSelectedCell] = useState<CellInfo | null>(null);
   const [hoverCell, setHoverCell] = useState<{ vargaIdx: number; signIdx: number } | null>(null);
   const [tooltip, setTooltip] = useState<{
@@ -114,49 +86,18 @@ export default function VargaSignFrequency({ data }: VargaSignFrequencyProps) {
   const getCellColor = useCallback(
     (span: number): string => {
       if (span === 0) return resolveCSSVar("var(--v-card)");
-      const ratio = span / maxSpan;
       // Interpolate from dark purple to bright gold
-      // Low: #1a1a2e → Mid: #9b7fe8 → High: #f0c060
-      if (ratio < 0.5) {
-        const t = ratio * 2;
-        const r = Math.round(26 + (155 - 26) * t);
-        const g = Math.round(26 + (127 - 26) * t);
-        const b = Math.round(46 + (232 - 46) * t);
-        return `rgb(${r},${g},${b})`;
-      } else {
-        const t = (ratio - 0.5) * 2;
-        const r = Math.round(155 + (240 - 155) * t);
-        const g = Math.round(127 + (192 - 127) * t);
-        const b = Math.round(232 + (96 - 232) * t);
-        return `rgb(${r},${g},${b})`;
-      }
+      return rgbString(sampleColorStops(PURPLE_GOLD_RAMP_EVEN, span / maxSpan));
     },
     [maxSpan]
   );
 
   useEffect(() => {
-    const updateWidth = () => {
-      if (containerRef.current) {
-        setCanvasWidth(containerRef.current.clientWidth);
-      }
-    };
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
-    if (containerRef.current) observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
     const height = 420;
-    canvas.width = canvasWidth * dpr;
-    canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
+    const ctx = prepareHiDPICanvas(canvas, canvasWidth, height);
+    if (!ctx) return;
 
     const plotW = canvasWidth - MARGIN.left - MARGIN.right;
     const plotH = height - MARGIN.top - MARGIN.bottom;
@@ -181,7 +122,7 @@ export default function VargaSignFrequency({ data }: VargaSignFrequencyProps) {
         // Show span text for larger cells
         if (span > 0 && cw > 30 && ch > 16) {
           const ratio = span / maxSpan;
-          ctx.fillStyle = ratio > 0.6 ? resolveCSSVar("var(--v-bg)") : resolveCSSVarAlpha("var(--v-text)", 0.85);
+          ctx.fillStyle = ratio > 0.6 ? resolveCSSVar("var(--v-bg)") : withAlpha("var(--v-text)", 0.85);
           ctx.font = `${Math.min(10, ch * 0.5)}px monospace`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
@@ -202,9 +143,9 @@ export default function VargaSignFrequency({ data }: VargaSignFrequencyProps) {
     // Hover row highlight with purple edge
     if (hoverCell) {
       const hy = MARGIN.top + hoverCell.vargaIdx * ch;
-      ctx.fillStyle = resolveCSSVarAlpha("var(--v-text)", 0.06);
+      ctx.fillStyle = withAlpha("var(--v-text)", 0.06);
       ctx.fillRect(MARGIN.left, hy, plotW, ch);
-      ctx.strokeStyle = resolveCSSVarAlpha("var(--v-accent-purple)", 0.4);
+      ctx.strokeStyle = withAlpha("var(--v-accent-purple)", 0.4);
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(MARGIN.left, hy);
@@ -215,12 +156,12 @@ export default function VargaSignFrequency({ data }: VargaSignFrequencyProps) {
 
       // Hover cell highlight
       const hx = MARGIN.left + hoverCell.signIdx * cw;
-      ctx.fillStyle = resolveCSSVarAlpha("var(--v-text)", 0.12);
+      ctx.fillStyle = withAlpha("var(--v-text)", 0.12);
       ctx.fillRect(hx, hy, cw - 1, ch - 1);
     }
 
     // Grid lines
-    ctx.strokeStyle = resolveCSSVarAlpha("var(--v-border)", 0.25);
+    ctx.strokeStyle = withAlpha("var(--v-border)", 0.25);
     ctx.lineWidth = 0.5;
     for (let s = 1; s < 12; s++) {
       const x = MARGIN.left + s * cw;
@@ -238,7 +179,7 @@ export default function VargaSignFrequency({ data }: VargaSignFrequencyProps) {
     }
 
     // Plot border
-    ctx.strokeStyle = resolveCSSVarAlpha("var(--v-border)", 0.5);
+    ctx.strokeStyle = withAlpha("var(--v-border)", 0.5);
     ctx.lineWidth = 1;
     ctx.strokeRect(MARGIN.left, MARGIN.top, plotW, plotH);
 
@@ -248,7 +189,7 @@ export default function VargaSignFrequency({ data }: VargaSignFrequencyProps) {
     for (let j = 0; j < N_VARGA; j++) {
       const y = MARGIN.top + (j + 0.5) * ch;
       const isHovered = hoverCell?.vargaIdx === j;
-      ctx.fillStyle = isHovered ? resolveCSSVar("var(--v-accent-purple)") : resolveCSSVarAlpha("var(--v-text)", 0.85);
+      ctx.fillStyle = isHovered ? resolveCSSVar("var(--v-accent-purple)") : withAlpha("var(--v-text)", 0.85);
       ctx.font = isHovered ? "bold 11px monospace" : "11px monospace";
       ctx.fillText(VARGA_NAMES[j], MARGIN.left - 5, y);
     }
@@ -265,7 +206,7 @@ export default function VargaSignFrequency({ data }: VargaSignFrequencyProps) {
 
     // X-axis sign names below symbols
     ctx.font = "8px monospace";
-    ctx.fillStyle = resolveCSSVarAlpha("var(--v-text-muted)", 0.5);
+    ctx.fillStyle = withAlpha("var(--v-text-muted)", 0.5);
     for (let s = 0; s < 12; s++) {
       const x = MARGIN.left + (s + 0.5) * cw;
       ctx.fillText(SIGN_NAMES[s + 1], x, MARGIN.top + plotH + 22);
@@ -288,10 +229,10 @@ export default function VargaSignFrequency({ data }: VargaSignFrequencyProps) {
       ctx.fillStyle = getCellColor(span);
       ctx.fillRect(legendX + i, legendY, 1, legendH);
     }
-    ctx.strokeStyle = resolveCSSVarAlpha("var(--v-border)", 0.5);
+    ctx.strokeStyle = withAlpha("var(--v-border)", 0.5);
     ctx.lineWidth = 0.5;
     ctx.strokeRect(legendX, legendY, legendW, legendH);
-    ctx.fillStyle = resolveCSSVarAlpha("var(--v-text-muted)", 0.5);
+    ctx.fillStyle = withAlpha("var(--v-text-muted)", 0.5);
     ctx.font = "8px monospace";
     ctx.textAlign = "left";
     ctx.fillText("0°", legendX, legendY + legendH + 8);
@@ -305,9 +246,7 @@ export default function VargaSignFrequency({ data }: VargaSignFrequencyProps) {
     (e: React.MouseEvent) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
+      const { x: mx, y: my } = canvasMousePos(canvas, e);
 
       const plotW = canvasWidth - MARGIN.left - MARGIN.right;
       const plotH = 420 - MARGIN.top - MARGIN.bottom;
@@ -342,9 +281,7 @@ export default function VargaSignFrequency({ data }: VargaSignFrequencyProps) {
     (e: React.MouseEvent) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
+      const { x: mx, y: my } = canvasMousePos(canvas, e);
 
       const plotW = canvasWidth - MARGIN.left - MARGIN.right;
       const plotH = 420 - MARGIN.top - MARGIN.bottom;
@@ -379,12 +316,7 @@ export default function VargaSignFrequency({ data }: VargaSignFrequencyProps) {
   }, []);
 
   const handleExportPng = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const link = document.createElement("a");
-    link.download = "varga_sign_frequency_heatmap.png";
-    link.href = canvas.toDataURL("image/png");
-    link.click();
+    downloadCanvasPng(canvasRef.current, "varga_sign_frequency_heatmap.png");
   }, []);
 
   return (
@@ -593,10 +525,10 @@ export default function VargaSignFrequency({ data }: VargaSignFrequencyProps) {
                         className="py-1 px-1 text-center font-mono"
                         style={{
                           color: span === 0
-                            ? resolveCSSVarAlpha("var(--v-text-muted)", 0.3)
+                            ? withAlpha("var(--v-text-muted)", 0.3)
                             : span === maxS
                             ? SIGN_COLORS[s]
-                            : resolveCSSVarAlpha("var(--v-text)", 0.55),
+                            : withAlpha("var(--v-text)", 0.55),
                         }}
                       >
                         {span > 0 ? span.toFixed(1) : "—"}

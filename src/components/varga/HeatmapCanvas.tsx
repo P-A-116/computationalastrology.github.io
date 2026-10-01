@@ -2,6 +2,15 @@
 
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { N_VARGA, VARGA_NAMES, SIGN_NAMES, SIGN_SYMBOLS } from "@/lib/varga-engine";
+import { resolveCSSVar, withAlpha } from "@/lib/theme-colors";
+import { downloadCanvasPng } from "@/lib/download";
+import {
+  useCanvasWidth,
+  useCanvasTooltip,
+  prepareHiDPICanvas,
+  canvasMousePos,
+  drawCrosshair,
+} from "@/hooks/use-canvas-chart";
 
 interface HeatmapCanvasProps {
   data: number[][];
@@ -15,28 +24,6 @@ interface HeatmapCanvasProps {
   highlightSigns?: boolean;
   tooltipContent?: (vargaIdx: number, intervalIdx: number, value: number) => string;
   activeVargas?: Set<number>;
-}
-
-/** Helper to resolve CSS variable to actual color for Canvas */
-function resolveCSSVar(cssVar: string): string {
-  if (cssVar.startsWith("var(")) {
-    if (typeof window !== "undefined") {
-      const varName = cssVar.slice(4, -1);
-      return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || "#888888";
-    }
-    return "#888888";
-  }
-  return cssVar;
-}
-
-/** Resolve a CSS variable to an rgba() string with given alpha */
-function resolveCSSVarAlpha(cssVar: string, alpha: number): string {
-  const hex = resolveCSSVar(cssVar);
-  const h = hex.replace("#", "");
-  const r = parseInt(h.substring(0, 2), 16);
-  const g = parseInt(h.substring(2, 4), 16);
-  const b = parseInt(h.substring(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 const HEATMAP_MARGIN = { top: 40, right: 20, bottom: 35, left: 55 };
@@ -56,14 +43,9 @@ export default function HeatmapCanvas({
 }: HeatmapCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [canvasWidth, setCanvasWidth] = useState(800);
-  const [tooltip, setTooltip] = useState<{
-    x: number;
-    y: number;
-    text: string;
-  } | null>(null);
+  const canvasWidth = useCanvasWidth(containerRef);
+  const { tooltip, setTooltip, crosshairX, setCrosshairX, resetHover } = useCanvasTooltip();
   const [hoverRow, setHoverRow] = useState<number | null>(null);
-  const [crosshairX, setCrosshairX] = useState<number | null>(null);
 
   const MARGIN = HEATMAP_MARGIN;
 
@@ -78,27 +60,10 @@ export default function HeatmapCanvas({
   const nActiveRows = activeRowIndices.length;
 
   useEffect(() => {
-    const updateWidth = () => {
-      if (containerRef.current) {
-        setCanvasWidth(containerRef.current.clientWidth);
-      }
-    };
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
-    if (containerRef.current) observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const ctx = prepareHiDPICanvas(canvas, canvasWidth, height);
     if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvasWidth * dpr;
-    canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
 
     const plotW = canvasWidth - MARGIN.left - MARGIN.right;
     const plotH = height - MARGIN.top - MARGIN.bottom;
@@ -157,10 +122,10 @@ export default function HeatmapCanvas({
     // Hover row highlight — using display row index
     if (hoverRow !== null && hoverRow >= 0 && hoverRow < nActiveRows) {
       const y1 = MARGIN.top + hoverRow * cellH;
-      ctx.fillStyle = resolveCSSVarAlpha("var(--v-text)", 0.08);
+      ctx.fillStyle = withAlpha("var(--v-text)", 0.08);
       ctx.fillRect(MARGIN.left, y1, plotW, cellH);
       // Top and bottom edge highlight
-      ctx.strokeStyle = resolveCSSVarAlpha("var(--v-accent-purple)", 0.4);
+      ctx.strokeStyle = withAlpha("var(--v-accent-purple)", 0.4);
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(MARGIN.left, y1);
@@ -171,7 +136,7 @@ export default function HeatmapCanvas({
     }
 
     // Horizontal grid lines between active varga rows
-    ctx.strokeStyle = resolveCSSVarAlpha("var(--v-border)", 0.35);
+    ctx.strokeStyle = withAlpha("var(--v-border)", 0.35);
     ctx.lineWidth = 0.5;
     ctx.setLineDash([]);
     for (let r = 1; r < nActiveRows; r++) {
@@ -184,7 +149,7 @@ export default function HeatmapCanvas({
 
     // Sign boundary lines (solid, more visible)
     if (highlightSigns) {
-      ctx.strokeStyle = resolveCSSVarAlpha("var(--v-border)", 0.6);
+      ctx.strokeStyle = withAlpha("var(--v-border)", 0.6);
       ctx.lineWidth = 1;
       ctx.setLineDash([]);
       for (let s = 0; s <= 12; s++) {
@@ -197,7 +162,7 @@ export default function HeatmapCanvas({
     }
 
     // Plot border
-    ctx.strokeStyle = resolveCSSVarAlpha("var(--v-border)", 0.5);
+    ctx.strokeStyle = withAlpha("var(--v-border)", 0.5);
     ctx.lineWidth = 1;
     ctx.strokeRect(MARGIN.left, MARGIN.top, plotW, plotH);
 
@@ -241,15 +206,8 @@ export default function HeatmapCanvas({
     ctx.fillText(title, MARGIN.left, 14);
 
     // Vertical crosshair line
-    if (crosshairX !== null && crosshairX >= MARGIN.left && crosshairX <= canvasWidth - MARGIN.right) {
-      ctx.beginPath();
-      ctx.moveTo(crosshairX, MARGIN.top);
-      ctx.lineTo(crosshairX, MARGIN.top + plotH);
-      ctx.strokeStyle = resolveCSSVarAlpha("var(--v-accent-purple)", 0.35);
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 3]);
-      ctx.stroke();
-      ctx.setLineDash([]);
+    if (crosshairX !== null) {
+      drawCrosshair(ctx, crosshairX, MARGIN, MARGIN.top, plotH, canvasWidth);
     }
 
   }, [data, edges, colors, title, peakSpans, troughSpans, height, canvasWidth, highlightSigns, hoverRow, activeRowIndices, nActiveRows, crosshairX]);
@@ -257,9 +215,7 @@ export default function HeatmapCanvas({
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const { x: mx, y: my } = canvasMousePos(canvas, e);
 
     // Update crosshair position
     setCrosshairX(mx);
@@ -312,21 +268,15 @@ export default function HeatmapCanvas({
 
       setTooltip({ x: mx, y: my, text });
     }
-  }, [canvasWidth, height, edges, data, tooltipContent, activeRowIndices, nActiveRows]);
+  }, [canvasWidth, height, edges, data, tooltipContent, activeRowIndices, nActiveRows, setTooltip, setCrosshairX]);
 
   const handleMouseLeave = useCallback(() => {
-    setTooltip(null);
+    resetHover();
     setHoverRow(null);
-    setCrosshairX(null);
-  }, []);
+  }, [resetHover]);
 
   const handleExportPng = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const link = document.createElement("a");
-    link.download = `${title.replace(/[^a-zA-Z0-9]/g, "_")}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
+    downloadCanvasPng(canvasRef.current, `${title.replace(/[^a-zA-Z0-9]/g, "_")}.png`);
   }, [title]);
 
   return (

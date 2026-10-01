@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import { useCallback } from "react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { SIGN_NAMES, SIGN_SYMBOLS, SIGN_COLORS } from "@/lib/varga-engine";
 

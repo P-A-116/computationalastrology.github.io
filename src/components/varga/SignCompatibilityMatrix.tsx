@@ -3,24 +3,24 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  computeVargaAnalysis,
+  type ComputationResult,
   SIGN_NAMES,
   SIGN_SYMBOLS,
   SIGN_COLORS,
   VARGA_NAMES,
   N_VARGA,
 } from "@/lib/varga-engine";
-
-// Helper to resolve CSS custom properties for Canvas API
-function resolveCSSVar(cssVar: string): string {
-  if (typeof document === "undefined" || !cssVar.startsWith("var(")) return cssVar;
-  const prop = cssVar.slice(4, -1);
-  const val = getComputedStyle(document.documentElement).getPropertyValue(prop).trim();
-  return val || cssVar;
-}
+import {
+  resolveCSSVar,
+  rgbString,
+  sampleColorStops,
+  PURPLE_GOLD_RAMP,
+} from "@/lib/theme-colors";
+import { downloadCanvasPng } from "@/lib/download";
+import { prepareHiDPICanvas } from "@/hooks/use-canvas-chart";
 
 interface SignCompatibilityMatrixProps {
-  data: ReturnType<typeof computeVargaAnalysis>;
+  data: ComputationResult;
 }
 
 export default function SignCompatibilityMatrix({ data }: SignCompatibilityMatrixProps) {
@@ -81,16 +81,10 @@ export default function SignCompatibilityMatrix({ data }: SignCompatibilityMatri
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
     const { width, height } = canvasSize;
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    ctx.scale(dpr, dpr);
+    const ctx = prepareHiDPICanvas(canvas, width, height, { setStyleSize: true });
+    if (!ctx) return;
 
     const bgColor = resolveCSSVar("var(--v-card)");
     const borderColor = resolveCSSVar("var(--v-border)");
@@ -143,25 +137,8 @@ export default function SignCompatibilityMatrix({ data }: SignCompatibilityMatri
         } else {
           const ratio = maxOverlap > 0 ? value / maxOverlap : 0;
           // Color scale: dark purple → bright purple → gold
-          if (ratio < 0.33) {
-            const t = ratio / 0.33;
-            const r = Math.round(30 + (80 - 30) * t);
-            const g = Math.round(25 + (50 - 25) * t);
-            const b = Math.round(50 + (110 - 50) * t);
-            ctx.fillStyle = `rgba(${r},${g},${b},0.75)`;
-          } else if (ratio < 0.66) {
-            const t = (ratio - 0.33) / 0.33;
-            const r = Math.round(80 + (155 - 80) * t);
-            const g = Math.round(50 + (127 - 50) * t);
-            const b = Math.round(110 + (232 - 110) * t);
-            ctx.fillStyle = `rgba(${r},${g},${b},0.75)`;
-          } else {
-            const t = (ratio - 0.66) / 0.34;
-            const r = Math.round(155 + (240 - 155) * t);
-            const g = Math.round(127 + (192 - 127) * t);
-            const b = Math.round(232 + (96 - 232) * t);
-            ctx.fillStyle = `rgba(${r},${g},${b},0.85)`;
-          }
+          const alpha = ratio < 0.66 ? 0.75 : 0.85;
+          ctx.fillStyle = rgbString(sampleColorStops(PURPLE_GOLD_RAMP, ratio), alpha);
         }
 
         ctx.fillRect(x + 0.5, y + 0.5, cellW - 1, cellH - 1);
@@ -243,7 +220,7 @@ export default function SignCompatibilityMatrix({ data }: SignCompatibilityMatri
     }
   }, [canvasSize]);
 
-  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleCanvasClick = useCallback(() => {
     if (!hoverCell) return;
     setSelectedCell(prev =>
       prev && prev.i === hoverCell.i && prev.j === hoverCell.j
@@ -258,13 +235,7 @@ export default function SignCompatibilityMatrix({ data }: SignCompatibilityMatri
 
   // Export to PNG
   const handleExportPNG = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const url = canvas.toDataURL("image/png");
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "sign-compatibility-matrix.png";
-    a.click();
+    downloadCanvasPng(canvasRef.current, "sign-compatibility-matrix.png");
   }, []);
 
   // Selected cell detail
@@ -369,26 +340,8 @@ export default function SignCompatibilityMatrix({ data }: SignCompatibilityMatri
         </div>
         <div className="w-24 h-3 rounded-sm overflow-hidden flex">
           {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0].map((ratio, idx) => {
-            let bg: string;
-            if (ratio < 0.33) {
-              const t = ratio / 0.33;
-              const r = Math.round(30 + (80 - 30) * t);
-              const g = Math.round(25 + (50 - 25) * t);
-              const b = Math.round(50 + (110 - 50) * t);
-              bg = `rgba(${r},${g},${b},0.75)`;
-            } else if (ratio < 0.66) {
-              const t = (ratio - 0.33) / 0.33;
-              const r = Math.round(80 + (155 - 80) * t);
-              const g = Math.round(50 + (127 - 50) * t);
-              const b = Math.round(110 + (232 - 110) * t);
-              bg = `rgba(${r},${g},${b},0.75)`;
-            } else {
-              const t = (ratio - 0.66) / 0.34;
-              const r = Math.round(155 + (240 - 155) * t);
-              const g = Math.round(127 + (192 - 127) * t);
-              const b = Math.round(232 + (96 - 232) * t);
-              bg = `rgba(${r},${g},${b},0.85)`;
-            }
+            const alpha = ratio < 0.66 ? 0.75 : 0.85;
+            const bg = rgbString(sampleColorStops(PURPLE_GOLD_RAMP, ratio), alpha);
             return <div key={idx} className="flex-1 h-full" style={{ backgroundColor: bg }} />;
           })}
         </div>

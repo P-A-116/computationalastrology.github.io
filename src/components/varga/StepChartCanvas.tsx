@@ -1,7 +1,15 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback } from "react";
-import { N_VARGA, VARGA_NAMES, SIGN_NAMES, SIGN_SYMBOLS } from "@/lib/varga-engine";
+import React, { useRef, useEffect, useCallback } from "react";
+import { N_VARGA, SIGN_NAMES, SIGN_SYMBOLS } from "@/lib/varga-engine";
+import { resolveCSSVar } from "@/lib/theme-colors";
+import {
+  useCanvasWidth,
+  useCanvasTooltip,
+  prepareHiDPICanvas,
+  canvasMousePos,
+  drawCrosshair,
+} from "@/hooks/use-canvas-chart";
 
 interface StepChartCanvasProps {
   edges: number[];
@@ -13,38 +21,6 @@ interface StepChartCanvasProps {
   height?: number;
   yDomain?: [number, number];
   showYLabel?: boolean;
-}
-
-/** Helper to resolve CSS variable to actual color for Canvas */
-function resolveCSSVar(cssVar: string): string {
-  if (cssVar.startsWith("var(")) {
-    if (typeof window !== "undefined") {
-      const varName = cssVar.slice(4, -1);
-      return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || "#888888";
-    }
-    return "#888888";
-  }
-  return cssVar;
-}
-
-/** Helper to resolve CSS variable to rgba() string for Canvas */
-function resolveCSSVarAlpha(cssVar: string, alpha: number): string {
-  const hex = resolveCSSVar(cssVar);
-  // Parse hex color to RGB
-  let r = 0, g = 0, b = 0;
-  if (hex.startsWith("#")) {
-    const clean = hex.replace("#", "");
-    if (clean.length >= 6) {
-      r = parseInt(clean.slice(0, 2), 16);
-      g = parseInt(clean.slice(2, 4), 16);
-      b = parseInt(clean.slice(4, 6), 16);
-    } else if (clean.length >= 3) {
-      r = parseInt(clean[0] + clean[0], 16);
-      g = parseInt(clean[1] + clean[1], 16);
-      b = parseInt(clean[2] + clean[2], 16);
-    }
-  }
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 const MARGIN_BASE = { top: 30, right: 20, bottom: 25, left: 45 };
@@ -63,38 +39,16 @@ export default function StepChartCanvas({
 }: StepChartCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [canvasWidth, setCanvasWidth] = useState(800);
-  const [tooltip, setTooltip] = useState<{
-    x: number;
-    y: number;
-    text: string;
-  } | null>(null);
-  const [crosshairX, setCrosshairX] = useState<number | null>(null);
+  const canvasWidth = useCanvasWidth(containerRef);
+  const { tooltip, setTooltip, crosshairX, setCrosshairX, resetHover } = useCanvasTooltip();
 
   const MARGIN = showYLabel ? MARGIN_BASE : MARGIN_NO_LABEL;
 
   useEffect(() => {
-    const updateWidth = () => {
-      if (containerRef.current) {
-        setCanvasWidth(containerRef.current.clientWidth);
-      }
-    };
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
-    if (containerRef.current) observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const ctx = prepareHiDPICanvas(canvas, canvasWidth, height);
     if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvasWidth * dpr;
-    canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
 
     const plotW = canvasWidth - MARGIN.left - MARGIN.right;
     const plotH = height - MARGIN.top - MARGIN.bottom;
@@ -201,15 +155,8 @@ export default function StepChartCanvas({
     ctx.fillText(title, MARGIN.left, 12);
 
     // Vertical crosshair line
-    if (crosshairX !== null && crosshairX >= MARGIN.left && crosshairX <= canvasWidth - MARGIN.right) {
-      ctx.beginPath();
-      ctx.moveTo(crosshairX, MARGIN.top);
-      ctx.lineTo(crosshairX, MARGIN.top + plotH);
-      ctx.strokeStyle = resolveCSSVarAlpha("var(--v-accent-purple)", 0.35);
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 3]);
-      ctx.stroke();
-      ctx.setLineDash([]);
+    if (crosshairX !== null) {
+      drawCrosshair(ctx, crosshairX, MARGIN, MARGIN.top, plotH, canvasWidth);
     }
 
   }, [edges, counts, color, title, peakSpans, troughSpans, height, canvasWidth, yDomain, showYLabel, crosshairX]);
@@ -217,8 +164,7 @@ export default function StepChartCanvas({
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
+    const { x: mx } = canvasMousePos(canvas, e);
 
     // Update crosshair position
     setCrosshairX(mx);
@@ -251,9 +197,9 @@ export default function StepChartCanvas({
       y: 10,
       text: `${SIGN_NAMES[signIdx + 1]} ${signDeg.toFixed(1)}° | count: ${count}`,
     });
-  }, [canvasWidth, edges, counts, showYLabel]);
+  }, [canvasWidth, edges, counts, showYLabel, setTooltip, setCrosshairX]);
 
-  const handleMouseLeave = useCallback(() => { setTooltip(null); setCrosshairX(null); }, []);
+  const handleMouseLeave = useCallback(() => { resetHover(); }, [resetHover]);
 
   return (
     <div ref={containerRef} className="relative w-full">

@@ -1,20 +1,18 @@
 "use client";
 
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import {
-  computeVargaAnalysis,
+  type CategoryGroup,
+  type ComputationResult,
+  CATEGORIES,
   getPeakAndTrough,
   SIGN_NAMES,
   SIGN_COLORS,
-  COL_ODD, COL_EVEN,
-  COL_CARDINAL, COL_FIXED, COL_MUTABLE,
-  COL_FIRE, COL_EARTH, COL_AIR, COL_WATER,
-  COL_FIRE_EARTH, COL_FIRE_AIR,
   N_VARGA,
 } from "@/lib/varga-engine";
 
 interface VargaGroupSummaryCardsProps {
-  data: ReturnType<typeof computeVargaAnalysis>;
+  data: ComputationResult;
   onViewTab: (tabId: string) => void;
 }
 
@@ -38,17 +36,14 @@ interface SummaryCardData {
 
 export default function VargaGroupSummaryCards({ data, onViewTab }: VargaGroupSummaryCardsProps) {
   const cards = useMemo((): SummaryCardData[] => {
-    const oddPT = getPeakAndTrough(data.oddIvs);
-    const evenPT = getPeakAndTrough(data.evenIvs);
-    const cardPT = getPeakAndTrough(data.cardIvs);
-    const fixPT = getPeakAndTrough(data.fixIvs);
-    const mutPT = getPeakAndTrough(data.mutIvs);
-    const firePT = getPeakAndTrough(data.fireIvs);
-    const earthPT = getPeakAndTrough(data.earthIvs);
-    const airPT = getPeakAndTrough(data.airIvs);
-    const waterPT = getPeakAndTrough(data.waterIvs);
-    const fireEarthPT = getPeakAndTrough(data.fireEarthIvs);
-    const fireAirPT = getPeakAndTrough(data.fireAirIvs);
+    // Derive each card's rows from the shared category descriptors so the
+    // label/color/interval mapping lives in exactly one place.
+    const itemsFor = (group: CategoryGroup) =>
+      CATEGORIES.filter((c) => c.group === group).map(({ name, color, key }) => ({
+        label: name,
+        ...getPeakAndTrough(data[key]),
+        color,
+      }));
 
     // Compute top/bottom signs
     const signPeaks: { sign: string; peak: number; color: string }[] = [];
@@ -66,43 +61,28 @@ export default function VargaGroupSummaryCards({ data, onViewTab }: VargaGroupSu
         tabId: "parity",
         icon: "⚖️",
         gradient: "linear-gradient(135deg, #e07a5c, #e07a5c88)",
-        items: [
-          { label: "Odd", peak: oddPT.peak, trough: oddPT.trough, color: COL_ODD },
-          { label: "Even", peak: evenPT.peak, trough: evenPT.trough, color: COL_EVEN },
-        ],
+        items: itemsFor("parity"),
       },
       {
         title: "Modality",
         tabId: "modality",
         icon: "🔄",
         gradient: "linear-gradient(135deg, #e05c5c, #5c8ee088)",
-        items: [
-          { label: "Cardinal", peak: cardPT.peak, trough: cardPT.trough, color: COL_CARDINAL },
-          { label: "Fixed", peak: fixPT.peak, trough: fixPT.trough, color: COL_FIXED },
-          { label: "Mutable", peak: mutPT.peak, trough: mutPT.trough, color: COL_MUTABLE },
-        ],
+        items: itemsFor("modality"),
       },
       {
         title: "Element",
         tabId: "element",
         icon: "🔥",
         gradient: "linear-gradient(135deg, #e0622a, #6080e088)",
-        items: [
-          { label: "Fire", peak: firePT.peak, trough: firePT.trough, color: COL_FIRE },
-          { label: "Earth", peak: earthPT.peak, trough: earthPT.trough, color: COL_EARTH },
-          { label: "Air", peak: airPT.peak, trough: airPT.trough, color: COL_AIR },
-          { label: "Water", peak: waterPT.peak, trough: waterPT.trough, color: COL_WATER },
-        ],
+        items: itemsFor("element"),
       },
       {
         title: "Combos",
         tabId: "combo",
         icon: "✨",
         gradient: "linear-gradient(135deg, #c8a840, #9b7fe888)",
-        items: [
-          { label: "Fire+Earth", peak: fireEarthPT.peak, trough: fireEarthPT.trough, color: COL_FIRE_EARTH },
-          { label: "Fire+Air", peak: fireAirPT.peak, trough: fireAirPT.trough, color: COL_FIRE_AIR },
-        ],
+        items: itemsFor("combo"),
       },
       {
         title: "Signs",
