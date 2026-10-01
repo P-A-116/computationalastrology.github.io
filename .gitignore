@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+bun.lockb
+
+# Next.js build output
+.next/
+out/
+build/
+dist/
+
+# Production / logs (dev & start scripts write these)
+dev.log
+server.log
+*.log
+
+# Environment
+.env
+.env*.local
+
+# IDE / editor
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.sln
+*.slnx
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
