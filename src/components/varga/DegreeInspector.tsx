@@ -40,11 +40,25 @@ const SPEED_OPTIONS = [
   { label: "5×", value: 5 },
 ] as const;
 
+/** Narrow a parsed localStorage value to a well-formed Bookmark. */
+function isBookmark(value: unknown): value is Bookmark {
+  if (typeof value !== "object" || value === null) return false;
+  const b = value as Record<string, unknown>;
+  return (
+    typeof b.degree === "number" &&
+    typeof b.label === "string" &&
+    typeof b.timestamp === "number"
+  );
+}
+
 function loadBookmarks(): Bookmark[] {
   if (typeof window === "undefined") return [];
   try {
     const stored = localStorage.getItem(BOOKMARKS_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed: unknown = JSON.parse(stored);
+      if (Array.isArray(parsed)) return parsed.filter(isBookmark);
+    }
   } catch { /* ignore */ }
   return [];
 }

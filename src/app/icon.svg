@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Varga Sign Analysis">
+  <defs>
+    <linearGradient id="vargaRing" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9b7fe8"/>
+      <stop offset="1" stop-color="#f0c060"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0e0e14"/>
+  <!-- 12-segment zodiac ring (circumference 2π·21 ≈ 131.95 → 12 × ~11) -->
+  <circle cx="32" cy="32" r="21" fill="none" stroke="url(#vargaRing)" stroke-width="5"
+          stroke-dasharray="6.6 4.4" transform="rotate(-90 32 32)"/>
+  <!-- pointer + hub -->
+  <line x1="32" y1="32" x2="32" y2="14.5" stroke="#f0c060" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="3.5" fill="#f0c060"/>
+</svg>
